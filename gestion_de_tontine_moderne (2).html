@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASPRO - Gestion de Tontine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 bg-slate-50 antialiased">
+
+<div id="app" class="min-h-screen flex flex-col">
+    <!-- Top Navigation -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-brand-600 p-2 rounded-xl text-white shadow-lg">
+                        <i class="fa-solid fa-coins text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                            ASPRO
+                            <span class="text-xs bg-brand-500/20 text-brand-400 border border-brand-500/30 font-medium px-2 py-0.5 rounded-full"><span id="tontineBadge">Susu 2026</span>
+                                <button id="editYearBtn" onclick="startYearEdit()" class="hidden ml-1 text-brand-400 hover:text-white" title="Saisir l'année (Administrateur)"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                            </span>
+                        </h1>
+                        <p class="text-xs text-slate-400 hidden sm:block">Plateforme de Gestion & Recouvrement</p>
+                    </div>
+                </div>
+
+                <!-- Admin Dynamic Base Contribution Widget in Header -->
+                <div class="hidden md:flex items-center bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5 gap-3">
+                    <div class="flex items-center text-slate-300 text-xs font-medium gap-1.5">
+                        <i class="fa-solid fa-wallet text-brand-400"></i>
+                        <span>Cotisation / mois :</span>
+                    </div>
+                    <div id="headerBaseAmountContainer" class="flex items-center gap-1.5">
+                        <!-- Dynamic input or read-only view rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Role Selector & Current User -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-1 flex items-center text-xs">
+                        <span class="text-slate-400 mr-2 ml-1 font-medium hidden sm:inline"><i class="fa-solid fa-user-shield text-slate-400 mr-1"></i>Session :</span>
+                        <select id="roleSelector" onchange="switchUser(this.value)" class="bg-slate-900 text-white font-medium rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500 text-xs cursor-pointer">
+                            <option value="admin">Administrateur</option>
+                        </select>
+                    </div>
+                    
+                    <button onclick="resetData()" title="Réinitialiser les données" class="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile View Base Monthly Amount Sub-bar -->
+        <div class="md:hidden bg-slate-800 border-t border-slate-700/60 px-4 py-2 flex justify-between items-center text-xs">
+            <span class="text-slate-300 flex items-center gap-1">
+                <i class="fa-solid fa-wallet text-brand-400"></i> Cotisation de base:
+            </span>
+            <div id="mobileBaseAmountContainer" class="flex items-center gap-2">
+                <!-- Mobile base amount editor -->
+            </div>
+        </div>
+    </header>
+
+    <div class="bg-white border-b border-slate-200 shadow-sm sticky top-16 z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <!-- Navigation Tabs -->
+                <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl w-full md:w-auto overflow-x-auto custom-scrollbar">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-white text-slate-800 shadow-sm">
+                        <i class="fa-solid fa-chart-pie"></i> Vue Globale
+                    </button>
+                    <button onclick="switchTab('members')" id="tab-members" class="flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-users"></i> Membres & Cotisations
+                    </button>
+                    <button onclick="switchTab('logs')" id="tab-logs" class="flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-history"></i> Traçabilité
+                    </button>
+                    <button onclick="switchTab('users')" id="tab-users" class="hidden flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-user-gear"></i> Utilisateurs
+                    </button>
+                    <button onclick="switchTab('settings')" id="tab-settings" class="flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-sliders"></i> Paramètres
+                    </button>
+                </div>
+
+                <!-- Multi-Month Selection Filter -->
+                <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-2 hidden lg:inline">Période :</span>
+                    <select id="monthRangeFilter" onchange="handleMonthFilterChange()" class="bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <option value="current">Mois en cours (Avril)</option>
+                        <option value="all">Toute l'année (12 mois)</option>
+                        <option value="custom">Plage personnalisée...</option>
+                    </select>
+
+                    <div id="customMonthSelector" class="hidden flex items-center gap-1">
+                        <select id="startMonthSelect" onchange="renderApp()" class="bg-white border border-slate-300 rounded-lg text-xs text-slate-700 px-2 py-1.5">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <span class="text-xs text-slate-400">à</span>
+                        <select id="endMonthSelect" onchange="renderApp()" class="bg-white border border-slate-300 rounded-lg text-xs text-slate-700 px-2 py-1.5">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <div id="view-dashboard" class="space-y-6">
+
+            <!-- Banner Info & Role alert -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-brand-900 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <div class="flex items-center gap-2 text-brand-400 font-semibold text-xs tracking-wider uppercase mb-1">
+                        <i class="fa-solid fa-calendar-check"></i> <span id="exerciseYearLabel">Exercice Annuel 2026</span>
+                    </div>
+                    <h2 class="text-2xl font-bold">Tableau de Bord de Recouvrement</h2>
+                    <p class="text-slate-300 text-sm mt-1">Suivi global et individuel des cotisations de la tontine.</p>
+                </div>
+                
+                <div class="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-4 flex items-center gap-4">
+                    <div class="p-3 bg-brand-500/20 text-brand-400 rounded-xl">
+                        <i class="fa-solid fa-calculator text-2xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-300 font-medium">Cotisation Mensuelle unitaire</div>
+                        <div class="text-xl font-bold text-white flex items-center gap-2">
+                            <span id="dashBaseMonthlyDisplay">500 000 GNF</span>
+                            <button id="quickEditBaseBtn" onclick="focusBaseInput()" class="text-xs bg-white/20 hover:bg-white/30 text-white p-1 rounded transition" title="Modifier le montant de base">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1: Montant attendu pour la période -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant Attendu</p>
+                            <h3 id="kpiExpected" class="text-2xl font-extrabold text-slate-900 mt-2">0 GNF</h3>
+                        </div>
+                        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                            <i class="fa-solid fa-bullseye text-lg"></i>
+                        </div>
+                    </div>
+                    <p id="kpiExpectedSub" class="text-xs text-slate-500 mt-2">Pour la période sélectionnée</p>
+                </div>
+
+                <!-- Card 2: Montant Récolté -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Montant Recouvré</p>
+                            <h3 id="kpiCollected" class="text-2xl font-extrabold text-brand-600 mt-2">0 GNF</h3>
+                        </div>
+                        <div class="p-3 bg-brand-50 text-brand-600 rounded-xl">
+                            <i class="fa-solid fa-vault text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div id="kpiCollectedBar" class="bg-brand-500 h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                        <span id="kpiCollectedPercent" class="text-xs font-bold text-brand-700">0%</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Reste à Recouvrer -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reste à Recouvrer</p>
+                            <h3 id="kpiRemaining" class="text-2xl font-extrabold text-amber-600 mt-2">0 GNF</h3>
+                        </div>
+                        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                            <i class="fa-solid fa-hourglass-half text-lg"></i>
+                        </div>
+                    </div>
+                    <p id="kpiRemainingSub" class="text-xs text-amber-700 font-medium mt-2">Cotisations impayées</p>
+                </div>
+
+                <!-- Card 4: Membres à jour -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Taux de Conformité</p>
+                            <h3 id="kpiUpToDateMembers" class="text-2xl font-extrabold text-slate-900 mt-2">0 / 0</h3>
+                        </div>
+                        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <i class="fa-solid fa-user-check text-lg"></i>
+                        </div>
+                    </div>
+                    <p id="kpiUpToDateSub" class="text-xs text-slate-500 mt-2">Membres ayant tout versé</p>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 gap-6">
+                <!-- Bar Chart: Monthly Collections -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900">Évolution Mensuelle des Recouvrements</h3>
+                            <p class="text-xs text-slate-500">Comparatif entre la cible (basée sur la cotisation de base) et le réalisé</p>
+                        </div>
+                        <span id="chartTargetBadge" class="text-xs bg-slate-100 font-semibold px-2.5 py-1 rounded-lg text-slate-600 border border-slate-200">
+                            Cible: 5 000 000 GNF/mois
+                        </span>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="monthlyCollectionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-members" class="hidden space-y-6">
+            <!-- Top Controls bar for members table -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="relative w-full md:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                    <input type="text" id="memberSearchInput" oninput="renderMembersTable()" placeholder="Rechercher un membre par nom..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                    <!-- Dynamic Admin button to change base amount quickly -->
+                    <div id="memberBaseContributionBox" class="text-xs bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2">
+                        <!-- Populated dynamically -->
+                    </div>
+
+                    <button onclick="openAddMemberModal()" data-perm="members" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i> Nouveau Membre
+                    </button>
+                </div>
+            </div>
+
+            <!-- Members Table Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                                <th class="py-3.5 px-4">Membre</th>
+                                <th class="py-3.5 px-4">Contact</th>
+                                <th class="py-3.5 px-4">Genre</th>
+                                <th class="py-3.5 px-4">Ville</th>
+                                <th class="py-3.5 px-4 text-center">Cotisation Due</th>
+                                <th class="py-3.5 px-4 text-center">Montant Versé</th>
+                                <th class="py-3.5 px-4 text-center">Reste à Payer</th>
+                                <th class="py-3.5 px-4 text-center">Statut Période</th>
+                                <th class="py-3.5 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="membersTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="view-logs" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Journal d'Activités & Traçabilité</h2>
+                        <p class="text-xs text-slate-500">Historique complet des modifications, paiements et changements de paramètres.</p>
+                    </div>
+                    <button onclick="clearLogs()" class="admin-only text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg font-medium transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Effacer l'historique
+                    </button>
+                </div>
+
+                <div class="space-y-3" id="logsList">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <div id="view-users" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="border-b border-slate-200 pb-4 mb-5">
+                    <h2 class="text-xl font-bold text-slate-900">Utilisateurs & Délégations</h2>
+                    <p class="text-xs text-slate-500">L'administrateur crée des utilisateurs et choisit ce qu'il leur délègue.</p>
+                </div>
+                <form onsubmit="handleUserSubmit(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nom complet</label>
+                        <input type="text" id="newUserName" required placeholder="ex: Fatoumata Camara" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Téléphone</label>
+                        <input type="text" id="newUserPhone" placeholder="+224 620 00 00 00" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-2">Délégations accordées</label>
+                        <div class="flex flex-wrap gap-4 text-sm text-slate-700">
+                            <label class="flex items-center gap-2"><input type="checkbox" id="newUserPermPayments" checked class="rounded text-brand-600"> Enregistrer les versements</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" id="newUserPermMembers" class="rounded text-brand-600"> Gérer les membres</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" id="newUserPermBeneficiaries" class="rounded text-brand-600"> Saisir les ayants droit</label>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 flex justify-end">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm px-5 py-2 rounded-xl transition shadow-sm flex items-center gap-2">
+                            <i class="fa-solid fa-user-plus"></i> Créer l'utilisateur
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                                <th class="py-3.5 px-4">Utilisateur</th>
+                                <th class="py-3.5 px-4">Contact</th>
+                                <th class="py-3.5 px-4">Délégations</th>
+                                <th class="py-3.5 px-4">Créé le</th>
+                                <th class="py-3.5 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-settings" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-3xl mx-auto">
+                <div class="border-b border-slate-200 pb-4 mb-6">
+                    <h2 class="text-xl font-bold text-slate-900">Paramètres de la Tontine</h2>
+                    <p class="text-xs text-slate-500">Configuration générale, montants de base et règles de gestion.</p>
+                </div>
+
+                <form onsubmit="handleSettingsSave(event)" class="space-y-6">
+                    <!-- Main Param: Monthly Base Contribution -->
+                    <div class="bg-brand-50/50 border border-brand-200 p-5 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label for="settingsBaseMonthlyInput" class="block font-bold text-slate-900 text-sm">
+                                <i class="fa-solid fa-money-bill-wave text-brand-600 mr-2"></i>Cotisation Mensuelle de Base (Unitaire)
+                            </label>
+                            <span class="text-xs bg-brand-100 text-brand-800 font-semibold px-2 py-0.5 rounded-full">Paramètre Clé</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Ce montant définit la cotisation standard par mois par membre. La modification de ce paramètre réévalue immédiatement les montants attendus, les paiements totaux exigés et les graphiques de suivi.
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <div class="relative flex-1">
+                                <input type="number" id="settingsBaseMonthlyInput" min="1000" step="5000" class="w-full pl-4 pr-16 py-2.5 bg-white border border-slate-300 rounded-xl text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <span class="absolute right-3 top-3 text-xs font-bold text-slate-400">GNF</span>
+                            </div>
+                            <span id="settingsAdminOnlyBadge" class="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl hidden">
+                                <i class="fa-solid fa-lock mr-1"></i> Modification réservée aux Admins
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- General Info Settings -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nom de la Tontine</label>
+                            <input type="text" id="settingsTontineName" maxlength="40" placeholder="ex: Susu" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <p class="text-[11px] text-slate-400 mt-1">Affiché dans l'en-tête de l'application.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Année</label>
+                            <input type="number" id="settingsTontineYear" min="2000" max="2100" step="1" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <p class="text-[11px] text-slate-400 mt-1">Exercice annuel en cours.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Monnaie / Devise</label>
+                            <input type="text" id="settingsCurrency" value="GNF" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Save Actions -->
+                    <div class="pt-4 border-t border-slate-200 flex justify-end">
+                        <button type="submit" id="saveSettingsBtn" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-xl transition text-sm shadow-md flex items-center gap-2">
+                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer les modifications
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+
+<!-- Payment / Contribution Modal -->
+<div id="paymentModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-slate-100">
+        <button onclick="closePaymentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+        
+        <div class="flex items-center gap-3 mb-4">
+            <div class="p-3 bg-brand-100 text-brand-700 rounded-xl">
+                <i class="fa-solid fa-hand-holding-dollar text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Enregistrer un Versement</h3>
+                <p id="paymentModalMemberName" class="text-xs text-slate-500 font-medium">Membre: -</p>
+            </div>
+        </div>
+
+        <form onsubmit="handlePaymentSubmit(event)" class="space-y-4">
+            <input type="hidden" id="payMemberId">
+
+            <!-- Validation mensuelle : cocher chaque mois payé -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase">Mois à valider</label>
+                    <span class="text-[11px] text-slate-400">Cochez chaque mois payé</span>
+                </div>
+                <div id="multiMonthChecklist" class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                    <!-- Dynamic checkboxes -->
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Les mois déjà validés sont verrouillés. Les autres restent à valider tant qu'ils ne sont pas cochés.</p>
+            </div>
+
+            <!-- Calculated summary box -->
+            <div class="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-xs space-y-1.5">
+                <div class="flex justify-between text-slate-600">
+                    <span>Cotisation mensuelle standard :</span>
+                    <span id="modalBaseRateDisplay" class="font-bold text-slate-800">500 000 GNF</span>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Mois cochés à valider :</span>
+                    <span id="modalSelectedMonthsCount" class="font-bold text-slate-800">0</span>
+                </div>
+                <div class="flex justify-between text-slate-900 font-bold border-t border-slate-200 pt-1.5 text-sm">
+                    <span>Montant Total à Valider :</span>
+                    <span id="modalSuggestedAmount" class="text-brand-600">500 000 GNF</span>
+                </div>
+            </div>
+
+            <!-- Payment Amount Input -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Montant Effectivement Versé (GNF)</label>
+                <input type="number" id="payAmountInput" required min="0" step="5000" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2 flex gap-2 justify-end">
+                <button type="button" onclick="closePaymentModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">Annuler</button>
+                <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold transition shadow">Valider les mois cochés</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add/Edit Member Modal -->
+<div id="memberModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100">
+        <button onclick="closeMemberModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+
+        <h3 id="memberModalTitle" class="text-lg font-bold text-slate-900 mb-4">Ajouter un Membre</h3>
+
+        <form onsubmit="handleMemberSubmit(event)" class="space-y-4">
+            <input type="hidden" id="editMemberId">
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nom complet</label>
+                <input type="text" id="memberModalName" required placeholder="ex: Mamadou Diallo" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Numéro de Téléphone</label>
+                <input type="text" id="memberModalPhone" required placeholder="+224 620 00 00 00" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Genre</label>
+                <div class="flex gap-4 text-sm text-slate-700">
+                    <label class="flex items-center gap-2"><input type="radio" name="memberGender" value="Homme" class="text-brand-600"> Homme</label>
+                    <label class="flex items-center gap-2"><input type="radio" name="memberGender" value="Femme" class="text-brand-600"> Femme</label>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Ville</label>
+                <input type="text" id="memberModalCity" placeholder="ex: Conakry" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+
+            <div class="pt-2 flex gap-2 justify-end">
+                <button type="button" onclick="closeMemberModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">Annuler</button>
+                <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold transition shadow">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-opacity duration-300 opacity-0 pointer-events-none">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-brand-400"></i>
+    <span id="toastMessage" class="text-xs font-medium">Notification</span>
+</div>
+
+<script>
+/**
+ * Application State
+ */
+const MONTHS = [
+    { id: 1, name: "Janvier" },
+    { id: 2, name: "Février" },
+    { id: 3, name: "Mars" },
+    { id: 4, name: "Avril" },
+    { id: 5, name: "Mai" },
+    { id: 6, name: "Juin" },
+    { id: 7, name: "Juillet" },
+    { id: 8, name: "Août" },
+    { id: 9, name: "Septembre" },
+    { id: 10, name: "Octobre" },
+    { id: 11, name: "Novembre" },
+    { id: 12, name: "Décembre" }
+];
+
+const DEFAULT_BASE_CONTRIBUTION = 500000; // 500,000 GNF default
+
+const DEFAULT_MEMBERS = [
+    { id: "m1", name: "Amadou Bah", phone: "+224 621 11 22 33", shares: 1 },
+    { id: "m2", name: "Fatoumata Camara", phone: "+224 622 33 44 55", shares: 1 },
+    { id: "m3", name: "Ousmane Sow", phone: "+224 620 55 66 77", shares: 1 },
+    { id: "m4", name: "Mariama Barry", phone: "+224 624 77 88 99", shares: 1 },
+    { id: "m5", name: "Ibrahima Touré", phone: "+224 625 99 00 11", shares: 1 },
+    { id: "m6", name: "Aïssatou Sylla", phone: "+224 626 12 34 56", shares: 1 },
+    { id: "m7", name: "Karamoko Keita", phone: "+224 627 23 45 67", shares: 1 },
+    { id: "m8", name: "Binta Fofana", phone: "+224 628 34 56 78", shares: 1 },
+    { id: "m9", name: "Sékou Conde", phone: "+224 629 45 67 89", shares: 1 },
+    { id: "m10", name: "Hadja Bangoura", phone: "+224 620 98 76 54", shares: 1 }
+];
+
+const DEFAULT_BENEFICIARIES = {
+    1: "m1",
+    2: "m2",
+    3: "m3",
+    4: "m4",
+    5: "m5",
+    6: "m6",
+    7: "m7",
+    8: "m8",
+    9: "m9",
+    10: "m10",
+    11: "m1",
+    12: "m2"
+};
+
+// Initial state load
+let appState = {
+    currentRole: "admin", // 'admin' or 'delegate'
+    currentUserId: null, // null = administrateur
+    tontineName: "Susu",
+    tontineYear: 2026,
+    users: [], // { id, name, phone, permissions: {payments, members, beneficiaries}, createdAt }
+    baseMonthlyContribution: DEFAULT_BASE_CONTRIBUTION,
+    members: DEFAULT_MEMBERS,
+    beneficiaries: DEFAULT_BENEFICIARIES, // monthId -> texte libre (ayant droit)
+    payments: [], // { id, memberId, monthId, amount, date, recordedBy }
+    logs: [], // { id, timestamp, text, userRole, type }
+    activeTab: "dashboard",
+    monthFilter: {
+        type: "current", // 'current', 'all', 'custom'
+        startMonth: 4, // Avril
+        endMonth: 4
+    }
+};
+
+let chartInstance = null;
+
+function initData() {
+    try {
+        const saved = localStorage.getItem("tontine_app_state_v2");
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            appState = { ...appState, ...parsed };
+            // Ensure fallback
+            if (!appState.baseMonthlyContribution || appState.baseMonthlyContribution <= 0) {
+                appState.baseMonthlyContribution = DEFAULT_BASE_CONTRIBUTION;
+            }
+        } else {
+            // Seed initial mock payments if new
+            seedInitialPayments();
+            saveData();
+        }
+    } catch (e) {
+        console.error("Failed to load local storage state", e);
+    }
+}
+
+function saveData() {
+    try {
+        localStorage.setItem("tontine_app_state_v2", JSON.stringify(appState));
+    } catch (e) {
+        console.error("Failed to save state", e);
+    }
+}
+
+function resetData() {
+    if (confirm("Voulez-vous réinitialiser toutes les données aux valeurs par défaut ?")) {
+        localStorage.removeItem("tontine_app_state_v2");
+        appState.baseMonthlyContribution = DEFAULT_BASE_CONTRIBUTION;
+        appState.members = DEFAULT_MEMBERS;
+        appState.beneficiaries = DEFAULT_BENEFICIARIES;
+        appState.payments = [];
+        appState.logs = [];
+        appState.users = [];
+        appState.currentRole = "admin";
+        appState.currentUserId = null;
+        normalizeState();
+        seedInitialPayments();
+        addLog("Réinitialisation complète des données de l'application", "system");
+        saveData();
+        renderApp();
+        showToast("Données réinitialisées avec succès");
+    }
+}
+
+function seedInitialPayments() {
+    // Seed Jan, Feb, Mar full payments for demo
+    const monthsToSeed = [1, 2, 3];
+    monthsToSeed.forEach(mId => {
+        appState.members.forEach(m => {
+            appState.payments.push({
+                id: 'pay_' + Math.random().toString(36).substr(2, 9),
+                memberId: m.id,
+                monthId: mId,
+                amount: DEFAULT_BASE_CONTRIBUTION * m.shares,
+                date: new Date(2026, mId - 1, 10).toISOString(),
+                recordedBy: "admin"
+            });
+        });
+    });
+    addLog(`Paiements initiaux de démonstration générés (Janvier-Mars)`, "system");
+}
+
+function addLog(text, type = "info") {
+    const newLog = {
+        id: "log_" + Date.now(),
+        timestamp: new Date().toISOString(),
+        text: text,
+        userRole: appState.currentRole === "admin" ? "Administrateur" : (((getCurrentUser() || {}).name || "Délégué") + " (Délégué)"),
+        type: type
+    };
+    appState.logs.unshift(newLog);
+    if (appState.logs.length > 100) appState.logs.pop(); // keep last 100
+}
+
+function updateBaseContribution(newAmount) {
+    if (appState.currentRole !== 'admin') {
+        showToast("Seul l'Administrateur peut modifier le montant de base !", "error");
+        return;
+    }
+
+    const numericAmount = parseInt(newAmount, 10);
+    if (isNaN(numericAmount) || numericAmount < 1000) {
+        showToast("Veuillez saisir un montant valide (ex: 500000)", "error");
+        return;
+    }
+
+    const oldAmount = appState.baseMonthlyContribution;
+    if (oldAmount === numericAmount) return;
+
+    appState.baseMonthlyContribution = numericAmount;
+    
+    // Log change
+    addLog(`Cotisation mensuelle de base modifiée : ${formatCurrency(oldAmount)} -> ${formatCurrency(numericAmount)}`, "settings");
+    saveData();
+    renderApp();
+    showToast(`Cotisation de base mise à jour : ${formatCurrency(numericAmount)}`);
+}
+
+function startYearEdit() {
+    if (appState.currentRole !== 'admin') return;
+    const badge = document.getElementById('tontineBadge');
+    badge.innerHTML = `${esc(appState.tontineName)} <input type="number" id="yearInlineInput" min="2000" max="2100" value="${appState.tontineYear}"
+        class="w-16 bg-slate-900 text-white border border-brand-500/50 rounded px-1 text-xs focus:outline-none"
+        onkeydown="if(event.key==='Enter'){this.blur();} if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}"
+        onblur="finishYearEdit(this)">`;
+    const input = document.getElementById('yearInlineInput');
+    input.focus();
+    input.select();
+}
+
+function finishYearEdit(input) {
+    const year = parseInt(input.value, 10);
+    if (input.dataset.cancel !== '1' && appState.currentRole === 'admin' && year !== appState.tontineYear) {
+        if (isNaN(year) || year < 2000 || year > 2100) {
+            showToast("Veuillez saisir une année valide (ex: 2026).", "error");
+        } else {
+            addLog(`Année de la tontine modifiée : ${appState.tontineYear} -> ${year}`, "settings");
+            appState.tontineYear = year;
+            saveData();
+            showToast(`Année mise à jour : ${year}`);
+        }
+    }
+    renderApp();
+}
+
+function focusBaseInput() {
+    if (appState.currentRole !== 'admin') {
+        showToast("Seul un Administrateur peut modifier le montant de base.", "error");
+        return;
+    }
+    switchTab('settings');
+    setTimeout(() => {
+        const input = document.getElementById('settingsBaseMonthlyInput');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }, 100);
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('fr-FR').format(amount) + " GNF";
+}
+
+function getSelectedMonthRange() {
+    const filter = appState.monthFilter;
+    if (filter.type === 'current') {
+        return [4]; // Avril
+    } else if (filter.type === 'all') {
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    } else {
+        const start = parseInt(filter.startMonth, 10);
+        const end = parseInt(filter.endMonth, 10);
+        const range = [];
+        const min = Math.min(start, end);
+        const max = Math.max(start, end);
+        for (let i = min; i <= max; i++) range.push(i);
+        return range;
+    }
+}
+
+// Calculate total expected for a member across selected months
+function getMemberExpectedAmount(member, monthRange = getSelectedMonthRange()) {
+    return monthRange.length * appState.baseMonthlyContribution * member.shares;
+}
+
+// Calculate total paid by a member across selected months
+function getMemberPaidAmount(memberId, monthRange = getSelectedMonthRange()) {
+    return appState.payments
+        .filter(p => p.memberId === memberId && monthRange.includes(p.monthId))
+        .reduce((sum, p) => sum + p.amount, 0);
+}
+
+// ---------- Utilisateurs & permissions ----------
+function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function getCurrentUser() {
+    return appState.currentUserId ? (appState.users || []).find(u => u.id === appState.currentUserId) || null : null;
+}
+
+function can(perm) {
+    if (appState.currentRole === 'admin') return true;
+    const u = getCurrentUser();
+    return !!(u && u.permissions && u.permissions[perm]);
+}
+
+function denyToast(msg) {
+    showToast(msg || "Action non déléguée à votre compte.", "error");
+}
+
+function normalizeState() {
+    if (appState.activeTab === 'beneficiaries') appState.activeTab = 'dashboard';
+    if (!Array.isArray(appState.users)) appState.users = [];
+    if (!appState.tontineName) appState.tontineName = 'Susu';
+    if (!appState.tontineYear) appState.tontineYear = 2026;
+    if (!appState.beneficiaries) appState.beneficiaries = {};
+    Object.keys(appState.beneficiaries).forEach(k => {
+        const v = appState.beneficiaries[k];
+        const mem = appState.members.find(m => m.id === v);
+        appState.beneficiaries[k] = mem ? mem.name : (v || '');
+    });
+    appState.members.forEach(m => {
+        if (typeof m.gender !== 'string') m.gender = '';
+        if (typeof m.city !== 'string') m.city = '';
+        if (!m.shares) m.shares = 1;
+    });
+    if (appState.currentRole === 'delegate' && !getCurrentUser()) {
+        appState.currentRole = 'admin';
+        appState.currentUserId = null;
+    }
+}
+
+function populateUserSelector() {
+    const sel = document.getElementById('roleSelector');
+    if (!sel) return;
+    sel.innerHTML = '<option value="admin">Administrateur</option>' +
+        (appState.users || []).map(u => `<option value="${esc(u.id)}">${esc(u.name)} (Délégué)</option>`).join('');
+    sel.value = appState.currentRole === 'admin' ? 'admin' : (appState.currentUserId || 'admin');
+}
+
+function switchUser(value) {
+    if (value === 'admin') {
+        appState.currentRole = 'admin';
+        appState.currentUserId = null;
+    } else {
+        const u = appState.users.find(x => x.id === value);
+        if (!u) return;
+        appState.currentRole = 'delegate';
+        appState.currentUserId = u.id;
+    }
+    const label = value === 'admin' ? 'Administrateur' : getCurrentUser().name + ' (Délégué)';
+    addLog(`Session changée pour : ${label}`);
+    saveData();
+    if (appState.activeTab === 'users' && appState.currentRole !== 'admin') {
+        switchTab('dashboard');
+    } else {
+        renderApp();
+    }
+    showToast(`Session active : ${label}`);
+}
+
+const PERMISSION_LABELS = {
+    payments: "Enregistrer les versements",
+    members: "Gérer les membres",
+    beneficiaries: "Saisir les ayants droit"
+};
+
+function handleUserSubmit(event) {
+    event.preventDefault();
+    if (appState.currentRole !== 'admin') return denyToast("Seul l'Administrateur peut créer des utilisateurs.");
+    const name = document.getElementById('newUserName').value.trim();
+    const phone = document.getElementById('newUserPhone').value.trim();
+    if (!name) return;
+    const user = {
+        id: 'u_' + Date.now(),
+        name: name,
+        phone: phone,
+        permissions: {
+            payments: document.getElementById('newUserPermPayments').checked,
+            members: document.getElementById('newUserPermMembers').checked,
+            beneficiaries: document.getElementById('newUserPermBeneficiaries').checked
+        },
+        createdAt: new Date().toISOString()
+    };
+    appState.users.push(user);
+    addLog(`Utilisateur créé : ${name} (délégations : ${Object.keys(user.permissions).filter(k => user.permissions[k]).map(k => PERMISSION_LABELS[k]).join(', ') || 'aucune'})`, "settings");
+    saveData();
+    event.target.reset();
+    document.getElementById('newUserPermPayments').checked = true;
+    renderApp();
+    showToast("Utilisateur créé");
+}
+
+function toggleUserPermission(userId, perm, checked) {
+    if (appState.currentRole !== 'admin') return denyToast("Seul l'Administrateur peut déléguer.");
+    const u = appState.users.find(x => x.id === userId);
+    if (!u) return;
+    u.permissions[perm] = !!checked;
+    addLog(`Délégation « ${PERMISSION_LABELS[perm]} » ${checked ? 'accordée à' : 'retirée à'} ${u.name}`, "settings");
+    saveData();
+    showToast("Délégation mise à jour");
+}
+
+function deleteUser(userId) {
+    if (appState.currentRole !== 'admin') return;
+    const u = appState.users.find(x => x.id === userId);
+    if (!u) return;
+    if (confirm(`Supprimer l'utilisateur "${u.name}" ?`)) {
+        appState.users = appState.users.filter(x => x.id !== userId);
+        addLog(`Utilisateur supprimé : ${u.name}`, "settings");
+        saveData();
+        renderApp();
+        showToast("Utilisateur supprimé");
+    }
+}
+
+function renderUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+    const adminRow = `
+        <tr class="bg-slate-50/60">
+            <td class="py-3.5 px-4 font-semibold text-slate-900"><i class="fa-solid fa-user-shield text-brand-600 mr-2"></i>Administrateur</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">-</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">Tous les droits (non modifiable)</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">-</td>
+            <td class="py-3.5 px-4"></td>
+        </tr>`;
+    const rows = appState.users.map(u => `
+        <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-semibold text-slate-900"><i class="fa-solid fa-user text-slate-400 mr-2"></i>${esc(u.name)}</td>
+            <td class="py-3.5 px-4 text-xs text-slate-600">${esc(u.phone) || '-'}</td>
+            <td class="py-3.5 px-4">
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700">
+                    ${Object.keys(PERMISSION_LABELS).map(k => `
+                        <label class="flex items-center gap-1.5">
+                            <input type="checkbox" ${u.permissions[k] ? 'checked' : ''} onchange="toggleUserPermission('${u.id}', '${k}', this.checked)" class="rounded text-brand-600">
+                            ${PERMISSION_LABELS[k]}
+                        </label>`).join('')}
+                </div>
+            </td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">${new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+            <td class="py-3.5 px-4 text-right">
+                <button onclick="deleteUser('${u.id}')" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg transition" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        </tr>`).join('');
+    tbody.innerHTML = adminRow + rows;
+}
+
+function applyPermissionsUI() {
+    const isAdmin = appState.currentRole === 'admin';
+    populateUserSelector();
+    document.querySelectorAll('[data-perm]').forEach(el => el.classList.toggle('hidden', !can(el.dataset.perm)));
+    const usersTab = document.getElementById('tab-users');
+    if (usersTab) usersTab.classList.toggle('hidden', !isAdmin);
+    
+    // Hide/Show admin-only elements
+    document.querySelectorAll('.admin-only').forEach(el => {
+        if (isAdmin) {
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    });
+
+    // Header Base Amount Control Render
+    const headerContainer = document.getElementById('headerBaseAmountContainer');
+    const mobileContainer = document.getElementById('mobileBaseAmountContainer');
+
+    if (isAdmin) {
+        headerContainer.innerHTML = `
+            <input type="number" 
+                   value="${appState.baseMonthlyContribution}" 
+                   onchange="updateBaseContribution(this.value)"
+                   step="25000" min="1000"
+                   class="w-32 bg-slate-900 border border-slate-600 rounded-lg text-xs font-bold text-brand-400 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right"
+                   title="Modifier directement la cotisation mensuelle de base">
+            <span class="text-xs text-slate-400 font-bold">GNF</span>
+        `;
+        mobileContainer.innerHTML = `
+            <input type="number" 
+                   value="${appState.baseMonthlyContribution}" 
+                   onchange="updateBaseContribution(this.value)"
+                   step="25000" min="1000"
+                   class="w-28 bg-slate-900 border border-slate-600 rounded-lg text-xs font-bold text-brand-400 px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-500 text-right">
+            <span class="text-xs text-slate-400 font-bold">GNF</span>
+        `;
+    } else {
+        headerContainer.innerHTML = `
+            <span class="text-xs font-bold text-brand-400 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-700">
+                ${formatCurrency(appState.baseMonthlyContribution)}
+            </span>
+            <span class="text-[10px] text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded" title="Lecture seule"><i class="fa-solid fa-lock"></i> Lect.</span>
+        `;
+        mobileContainer.innerHTML = `
+            <span class="text-xs font-bold text-brand-400">${formatCurrency(appState.baseMonthlyContribution)}</span>
+            <span class="text-[10px] text-slate-400"><i class="fa-solid fa-lock"></i> Lect.</span>
+        `;
+    }
+
+    // Settings page admin restriction notice
+    const settingsAdminBadge = document.getElementById('settingsAdminOnlyBadge');
+    const settingsInput = document.getElementById('settingsBaseMonthlyInput');
+    const settingsSaveBtn = document.getElementById('saveSettingsBtn');
+
+    // Nom et année de la tontine (en-tête + bandeau + paramètres)
+    const badge = document.getElementById('tontineBadge');
+    if (badge) badge.innerText = `${appState.tontineName} ${appState.tontineYear}`;
+    const editYearBtn = document.getElementById('editYearBtn');
+    if (editYearBtn) editYearBtn.classList.toggle('hidden', !isAdmin);
+    const yearLabel = document.getElementById('exerciseYearLabel');
+    if (yearLabel) yearLabel.innerText = `Exercice Annuel ${appState.tontineYear}`;
+    const nameInput = document.getElementById('settingsTontineName');
+    const yearInput = document.getElementById('settingsTontineYear');
+    [[nameInput, appState.tontineName], [yearInput, appState.tontineYear]].forEach(([el, val]) => {
+        if (!el) return;
+        el.value = val;
+        if (isAdmin) el.removeAttribute('disabled'); else el.setAttribute('disabled', 'disabled');
+    });
+
+    if (settingsInput) {
+        settingsInput.value = appState.baseMonthlyContribution;
+        if (!isAdmin) {
+            settingsInput.setAttribute('disabled', 'disabled');
+            if (settingsAdminBadge) settingsAdminBadge.classList.remove('hidden');
+            if (settingsSaveBtn) settingsSaveBtn.classList.add('hidden');
+        } else {
+            settingsInput.removeAttribute('disabled');
+            if (settingsAdminBadge) settingsAdminBadge.classList.add('hidden');
+            if (settingsSaveBtn) settingsSaveBtn.classList.remove('hidden');
+        }
+    }
+}
+
+function switchTab(tabId) {
+    if (tabId === 'users' && appState.currentRole !== 'admin') tabId = 'dashboard';
+    appState.activeTab = tabId;
+    
+    // Hide all view panels
+    ['dashboard', 'members', 'logs', 'users', 'settings'].forEach(id => {
+        const view = document.getElementById(`view-${id}`);
+        const tabBtn = document.getElementById(`tab-${id}`);
+        if (view) view.classList.add('hidden');
+        if (tabBtn) {
+            tabBtn.className = "flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900";
+        }
+    });
+
+    // Show active panel
+    const activeView = document.getElementById(`view-${tabId}`);
+    const activeBtn = document.getElementById(`tab-${tabId}`);
+    if (activeView) activeView.classList.remove('hidden');
+    if (activeBtn) {
+        activeBtn.className = "flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-slate-900 text-white shadow-sm";
+    }
+
+    renderApp();
+}
+
+// Filter selector changes
+function handleMonthFilterChange() {
+    const val = document.getElementById('monthRangeFilter').value;
+    appState.monthFilter.type = val;
+
+    const customBox = document.getElementById('customMonthSelector');
+    if (val === 'custom') {
+        customBox.classList.remove('hidden');
+    } else {
+        customBox.classList.add('hidden');
+    }
+
+    renderApp();
+}
+
+function renderDashboard() {
+    const monthRange = getSelectedMonthRange();
+    
+    // Update dynamic banner rate
+    document.getElementById('dashBaseMonthlyDisplay').innerText = formatCurrency(appState.baseMonthlyContribution);
+
+    // Calculate aggregated metrics
+    const totalShares = appState.members.reduce((acc, m) => acc + m.shares, 0);
+    const expectedPerMonth = totalShares * appState.baseMonthlyContribution;
+    const totalExpected = expectedPerMonth * monthRange.length;
+
+    // Collected amount for selected period
+    let totalCollected = 0;
+    appState.members.forEach(m => {
+        totalCollected += getMemberPaidAmount(m.id, monthRange);
+    });
+
+    const totalRemaining = Math.max(0, totalExpected - totalCollected);
+    const collectionPercent = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
+    // Up-to-date members count
+    let upToDateCount = 0;
+    appState.members.forEach(m => {
+        const exp = getMemberExpectedAmount(m, monthRange);
+        const paid = getMemberPaidAmount(m.id, monthRange);
+        if (paid >= exp) upToDateCount++;
+    });
+
+    // Update KPI Card Displays
+    document.getElementById('kpiExpected').innerText = formatCurrency(totalExpected);
+    document.getElementById('kpiExpectedSub').innerText = `${monthRange.length} mois (${appState.members.length} membres)`;
+
+    document.getElementById('kpiCollected').innerText = formatCurrency(totalCollected);
+    document.getElementById('kpiCollectedBar').style.width = `${Math.min(100, collectionPercent)}%`;
+    document.getElementById('kpiCollectedPercent').innerText = `${collectionPercent}%`;
+
+    document.getElementById('kpiRemaining').innerText = formatCurrency(totalRemaining);
+    document.getElementById('kpiUpToDateMembers').innerText = `${upToDateCount} / ${appState.members.length}`;
+
+    // Target badge text
+    document.getElementById('chartTargetBadge').innerText = `Cible: ${formatCurrency(expectedPerMonth)} / mois`;
+
+    // Render / Update Chart.js
+    renderCollectionChart(expectedPerMonth);
+}
+
+function renderCollectionChart(monthlyTarget) {
+    const ctx = document.getElementById('monthlyCollectionChart').getContext('2d');
+
+    const labels = MONTHS.map(m => m.name);
+    const collectedData = MONTHS.map(m => {
+        return appState.payments
+            .filter(p => p.monthId === m.id)
+            .reduce((sum, p) => sum + p.amount, 0);
+    });
+
+    const targetData = MONTHS.map(() => monthlyTarget);
+
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Recouvré (GNF)',
+                    data: collectedData,
+                    backgroundColor: '#22c55e',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Cible Théorique (GNF)',
+                    data: targetData,
+                    type: 'line',
+                    borderColor: '#64748b',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { size: 11, family: 'Inter' } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        font: { size: 10, family: 'Inter' },
+                        callback: function(value) {
+                            return (value / 1000000) + 'M';
+                        }
+                    }
+                },
+                x: {
+                    ticks: { font: { size: 10, family: 'Inter' } }
+                }
+            }
+        }
+    });
+}
+
+function renderMembersTable() {
+    const tbody = document.getElementById('membersTableBody');
+    const searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
+    const monthRange = getSelectedMonthRange();
+
+    // Render header quick rate box
+    const memberBaseBox = document.getElementById('memberBaseContributionBox');
+    if (appState.currentRole === 'admin') {
+        memberBaseBox.innerHTML = `
+            <span class="text-slate-500">Cotisation unitaire:</span>
+            <strong class="text-brand-700">${formatCurrency(appState.baseMonthlyContribution)}</strong>
+            <button onclick="focusBaseInput()" class="text-slate-400 hover:text-brand-600 ml-1" title="Modifier le montant">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+        `;
+    } else {
+        memberBaseBox.innerHTML = `
+            <span class="text-slate-500">Cotisation unitaire:</span>
+            <strong class="text-brand-700">${formatCurrency(appState.baseMonthlyContribution)}</strong>
+        `;
+    }
+
+    const filteredMembers = appState.members.filter(m => 
+        m.name.toLowerCase().includes(searchTerm) || m.phone.includes(searchTerm)
+    );
+
+    if (filteredMembers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="py-8 text-center text-slate-400 text-xs">
+                    Aucun membre trouvé.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filteredMembers.map(m => {
+        const expected = getMemberExpectedAmount(m, monthRange);
+        const paid = getMemberPaidAmount(m.id, monthRange);
+        const remaining = Math.max(0, expected - paid);
+        
+        let statusBadge = '';
+        if (paid >= expected) {
+            statusBadge = `<span class="bg-brand-100 text-brand-800 border border-brand-200 text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center gap-1"><i class="fa-solid fa-check"></i> À jour</span>`;
+        } else if (paid > 0) {
+            statusBadge = `<span class="bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center gap-1"><i class="fa-solid fa-clock"></i> Partiel</span>`;
+        } else {
+            statusBadge = `<span class="bg-rose-100 text-rose-800 border border-rose-200 text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> En retard</span>`;
+        }
+
+        return `
+            <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-3.5 px-4 font-semibold text-slate-900">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs border border-slate-200">
+                            ${m.name.charAt(0)}
+                        </div>
+                        <div>${m.name}</div>
+                    </div>
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600">${m.phone}</td>
+                <td class="py-3.5 px-4 text-xs text-slate-600">${m.gender ? esc(m.gender) : '-'}</td>
+                <td class="py-3.5 px-4 text-xs text-slate-600">${m.city ? esc(m.city) : '-'}</td>
+                <td class="py-3.5 px-4 text-center font-bold text-slate-800">${formatCurrency(expected)}</td>
+                <td class="py-3.5 px-4 text-center font-bold text-brand-600">${formatCurrency(paid)}</td>
+                <td class="py-3.5 px-4 text-center font-bold ${remaining > 0 ? 'text-amber-600' : 'text-slate-400'}">${formatCurrency(remaining)}</td>
+                <td class="py-3.5 px-4 text-center">${statusBadge}</td>
+                <td class="py-3.5 px-4 text-right space-x-1">
+                    <button onclick="openPaymentModal('${m.id}')" data-perm="payments" class="bg-brand-50 hover:bg-brand-100 text-brand-700 p-2 rounded-lg text-xs font-semibold transition" title="Enregistrer un versement">
+                        <i class="fa-solid fa-plus-circle mr-1"></i> Verser
+                    </button>
+                    <button onclick="openEditMemberModal('${m.id}')" data-perm="members" class="text-slate-400 hover:text-slate-700 p-2 rounded-lg transition" title="Modifier">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button onclick="deleteMember('${m.id}')" data-perm="members" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg transition" title="Supprimer">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    applyPermissionsUI();
+}
+
+function renderLogs() {
+    const container = document.getElementById('logsList');
+    if (appState.logs.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-400">Aucune activité enregistrée.</div>`;
+        return;
+    }
+
+    container.innerHTML = appState.logs.map(log => {
+        const dateStr = new Date(log.timestamp).toLocaleString('fr-FR', {
+            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        let icon = '<i class="fa-solid fa-info text-blue-500"></i>';
+        if (log.type === 'settings') icon = '<i class="fa-solid fa-gear text-amber-500"></i>';
+        if (log.type === 'payment') icon = '<i class="fa-solid fa-circle-check text-brand-500"></i>';
+        if (log.type === 'beneficiary') icon = '<i class="fa-solid fa-trophy text-purple-500"></i>';
+
+        return `
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3 text-xs">
+                <div class="p-2 bg-white rounded-lg border border-slate-200 shadow-sm mt-0.5">
+                    ${icon}
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-800">${log.text}</span>
+                        <span class="text-[10px] text-slate-400">${dateStr}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">
+                        Effectué par: <span class="font-semibold text-slate-700">${log.userRole}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function clearLogs() {
+    if (appState.currentRole !== 'admin') return;
+    if (confirm("Effacer tout l'historique des logs ?")) {
+        appState.logs = [];
+        addLog("Historique des activités effacé par l'Administrateur");
+        saveData();
+        renderLogs();
+        showToast("Historique réinitialisé");
+    }
+}
+
+function getMemberMonthPaid(memberId, monthId) {
+    return appState.payments
+        .filter(p => p.memberId === memberId && p.monthId === monthId)
+        .reduce((sum, p) => sum + p.amount, 0);
+}
+
+function openPaymentModal(memberId) {
+    if (!can('payments')) return denyToast("L'enregistrement des versements ne vous est pas délégué.");
+    const member = appState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    document.getElementById('payMemberId').value = memberId;
+    document.getElementById('paymentModalMemberName').innerText = `Membre: ${member.name}`;
+
+    const baseRate = appState.baseMonthlyContribution * member.shares;
+
+    // Liste des 12 mois : validés = cochés et verrouillés, les autres restent à cocher
+    const checklist = document.getElementById('multiMonthChecklist');
+    checklist.innerHTML = MONTHS.map(m => {
+        const paid = getMemberMonthPaid(memberId, m.id);
+        const done = paid >= baseRate;
+        const partial = !done && paid > 0;
+        const due = Math.max(baseRate - paid, 0);
+        return `
+            <label class="flex items-center gap-2 p-1.5 rounded-lg border text-xs font-medium ${done ? 'bg-emerald-50 border-emerald-200 text-emerald-800 cursor-not-allowed' : 'bg-white border-slate-200 cursor-pointer hover:bg-slate-100'}">
+                <input type="checkbox" value="${m.id}" data-due="${due}" ${done ? 'checked disabled' : ''}
+                       onchange="updatePaymentModalCalculations()" class="month-checkbox text-brand-600 rounded focus:ring-brand-500">
+                <span class="flex-1">${m.name}</span>
+                ${done ? '<span class="text-[10px] font-bold">Validé</span>' : (partial ? '<span class="text-[10px] font-bold text-amber-600">Partiel</span>' : '')}
+            </label>
+        `;
+    }).join('');
+
+    updatePaymentModalCalculations();
+    document.getElementById('paymentModal').classList.remove('hidden');
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.add('hidden');
+}
+
+function getCheckedPendingMonths() {
+    return Array.from(document.querySelectorAll('.month-checkbox:checked:not(:disabled)'));
+}
+
+function updatePaymentModalCalculations() {
+    const memberId = document.getElementById('payMemberId').value;
+    const member = appState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    document.getElementById('modalBaseRateDisplay').innerText = formatCurrency(appState.baseMonthlyContribution * member.shares);
+
+    const checked = getCheckedPendingMonths();
+    const suggested = checked.reduce((sum, c) => sum + parseInt(c.dataset.due, 10), 0);
+    document.getElementById('modalSelectedMonthsCount').innerText = checked.length;
+    document.getElementById('modalSuggestedAmount').innerText = formatCurrency(suggested);
+    document.getElementById('payAmountInput').value = suggested;
+}
+
+function handlePaymentSubmit(event) {
+    event.preventDefault();
+    if (!can('payments')) return denyToast("L'enregistrement des versements ne vous est pas délégué.");
+    const memberId = document.getElementById('payMemberId').value;
+    const member = appState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    const checked = getCheckedPendingMonths();
+    if (checked.length === 0) {
+        showToast("Cochez au moins un mois à valider.", "error");
+        return;
+    }
+
+    const amount = parseInt(document.getElementById('payAmountInput').value, 10);
+    if (isNaN(amount) || amount <= 0) {
+        showToast("Veuillez saisir un montant valide.", "error");
+        return;
+    }
+
+    const targetMonths = checked.map(c => parseInt(c.value, 10));
+    const totalDue = checked.reduce((sum, c) => sum + parseInt(c.dataset.due, 10), 0);
+
+    // Montant exact attendu : chaque mois reçoit son dû ; sinon répartition égale
+    targetMonths.forEach((mId, i) => {
+        const monthAmount = amount === totalDue
+            ? parseInt(checked[i].dataset.due, 10)
+            : Math.round(amount / targetMonths.length);
+        appState.payments.push({
+            id: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            memberId: memberId,
+            monthId: mId,
+            amount: monthAmount,
+            date: new Date().toISOString(),
+            recordedBy: appState.currentRole
+        });
+    });
+
+    const monthNames = targetMonths.map(id => MONTHS.find(m => m.id === id)?.name).join(', ');
+    addLog(`Paiement validé de ${formatCurrency(amount)} pour ${member.name} (${monthNames})`, "payment");
+
+    saveData();
+    closePaymentModal();
+    renderApp();
+    showToast(`${targetMonths.length} mois validé(s) pour ${member.name}`);
+}
+
+function setMemberGender(value) {
+    document.querySelectorAll('input[name="memberGender"]').forEach(r => { r.checked = (r.value === value); });
+}
+
+function openAddMemberModal() {
+    if (!can('members')) return denyToast("La gestion des membres ne vous est pas déléguée.");
+    document.getElementById('editMemberId').value = "";
+    document.getElementById('memberModalTitle').innerText = "Ajouter un Membre";
+    document.getElementById('memberModalName').value = "";
+    document.getElementById('memberModalPhone').value = "";
+    setMemberGender("");
+    document.getElementById('memberModalCity').value = "";
+    document.getElementById('memberModal').classList.remove('hidden');
+}
+
+function openEditMemberModal(memberId) {
+    if (!can('members')) return denyToast("La gestion des membres ne vous est pas déléguée.");
+    const member = appState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    document.getElementById('editMemberId').value = member.id;
+    document.getElementById('memberModalTitle').innerText = "Modifier le Membre";
+    document.getElementById('memberModalName').value = member.name;
+    document.getElementById('memberModalPhone').value = member.phone;
+    setMemberGender(member.gender || "");
+    document.getElementById('memberModalCity').value = member.city || "";
+    document.getElementById('memberModal').classList.remove('hidden');
+}
+
+function closeMemberModal() {
+    document.getElementById('memberModal').classList.add('hidden');
+}
+
+function handleMemberSubmit(event) {
+    event.preventDefault();
+    if (!can('members')) return denyToast("La gestion des membres ne vous est pas déléguée.");
+
+    const editId = document.getElementById('editMemberId').value;
+    const name = document.getElementById('memberModalName').value.trim();
+    const phone = document.getElementById('memberModalPhone').value.trim();
+    const genderInput = document.querySelector('input[name="memberGender"]:checked');
+    const gender = genderInput ? genderInput.value : '';
+    const city = document.getElementById('memberModalCity').value.trim();
+
+    if (!name || !phone) return;
+
+    if (editId) {
+        // Edit existing
+        const member = appState.members.find(m => m.id === editId);
+        if (member) {
+            member.name = name;
+            member.phone = phone;
+            member.gender = gender;
+            member.city = city;
+            addLog(`Fiche membre mise à jour : ${name}`, "settings");
+        }
+    } else {
+        // Create new
+        const newMember = {
+            id: 'm_' + Date.now(),
+            name: name,
+            phone: phone,
+            shares: 1,
+            gender: gender,
+            city: city
+        };
+        appState.members.push(newMember);
+        addLog(`Nouveau membre ajouté : ${name} (${gender || 'genre non renseigné'}, ${city || 'ville non renseignée'})`, "settings");
+    }
+
+    saveData();
+    closeMemberModal();
+    renderApp();
+    showToast("Membre enregistré avec succès");
+}
+
+function deleteMember(memberId) {
+    if (!can('members')) return denyToast("La gestion des membres ne vous est pas déléguée.");
+    const member = appState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    if (confirm(`Voulez-vous vraiment supprimer le membre "${member.name}" ?`)) {
+        appState.members = appState.members.filter(m => m.id !== memberId);
+        appState.payments = appState.payments.filter(p => p.memberId !== memberId);
+        addLog(`Membre supprimé : ${member.name}`);
+        saveData();
+        renderApp();
+        showToast("Membre supprimé");
+    }
+}
+
+function handleSettingsSave(event) {
+    event.preventDefault();
+    if (appState.currentRole !== 'admin') return;
+
+    const newName = document.getElementById('settingsTontineName').value.trim() || 'Susu';
+    const newYear = parseInt(document.getElementById('settingsTontineYear').value, 10);
+    if (isNaN(newYear) || newYear < 2000 || newYear > 2100) {
+        showToast("Veuillez saisir une année valide (ex: 2026).", "error");
+        return;
+    }
+
+    if (newName !== appState.tontineName || newYear !== appState.tontineYear) {
+        addLog(`Identité de la tontine modifiée : ${appState.tontineName} ${appState.tontineYear} -> ${newName} ${newYear}`, "settings");
+        appState.tontineName = newName;
+        appState.tontineYear = newYear;
+        saveData();
+        renderApp();
+        showToast(`Tontine mise à jour : ${newName} ${newYear}`);
+    }
+
+    const newAmount = parseInt(document.getElementById('settingsBaseMonthlyInput').value, 10);
+    updateBaseContribution(newAmount);
+}
+
+function showToast(message, type = "success") {
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+
+    toastMsg.innerText = message;
+    if (type === "error") {
+        toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+    } else {
+        toastIcon.className = "fa-solid fa-circle-check text-brand-400";
+    }
+
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+    }, 3000);
+}
+
+function renderApp() {
+    applyPermissionsUI();
+
+    // Populate dropdowns for custom month filter if empty
+    const startSel = document.getElementById('startMonthSelect');
+    const endSel = document.getElementById('endMonthSelect');
+    if (startSel && startSel.children.length === 0) {
+        startSel.innerHTML = MONTHS.map(m => `<option value="${m.id}" ${m.id === 1 ? 'selected' : ''}>${m.name}</option>`).join('');
+        endSel.innerHTML = MONTHS.map(m => `<option value="${m.id}" ${m.id === 4 ? 'selected' : ''}>${m.name}</option>`).join('');
+    }
+
+    if (appState.monthFilter.type === 'custom') {
+        appState.monthFilter.startMonth = document.getElementById('startMonthSelect').value || 1;
+        appState.monthFilter.endMonth = document.getElementById('endMonthSelect').value || 4;
+    }
+
+    if (appState.activeTab === 'dashboard') renderDashboard();
+    if (appState.activeTab === 'members') renderMembersTable();
+    if (appState.activeTab === 'logs') renderLogs();
+    if (appState.activeTab === 'users') renderUsers();
+    if (appState.activeTab === 'settings') applyPermissionsUI();
+}
+
+window.onload = function () {
+    initData();
+    normalizeState();
+    saveData();
+
+    renderApp();
+};
+</script>
+</body>
+</html>
